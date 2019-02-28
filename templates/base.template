@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <Title></Title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+        crossorigin="anonymous">
+
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header and Navigation -->
+        <div class="row align-items-center">
+            <div class="col-md-auto">
+                <img src="images/cat-doctor.jpg" width="200" class="d-inline-block align-top" alt="">
+            </div>
+            <div class="col">
+                <div class="align-self-center">
+                    <h2>Hello. Welcome.</h2>
+                    <p>This is my amazing website.</p>
+                </div>
+            </div>
+            <div class="col">
+                <nav class="navbar navbar-light bg-light">
+                    <ul class="nav">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="home.html">Home</a> <!-- Dynamic active assignment -->
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="about.html">About</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="contact.html">Contact</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+        <!-- Content here -->
+        {{content}}
+    </div>
+</body>
+
+</html>
