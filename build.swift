@@ -4,47 +4,57 @@ import Foundation
 
 let sendOutputToBrowser = true
 
-let fileManager = FileManager.default
-let currentDirectoryPath = fileManager.currentDirectoryPath
-let currentDirectoryURL = URL(fileURLWithPath: currentDirectoryPath)
-let docsURL = currentDirectoryURL.appendingPathComponent("docs")
-
-let docsContents = try fileManager.contentsOfDirectory(at: docsURL, includingPropertiesForKeys: nil)
-let htmlFiles = docsContents.filter{ $0.pathExtension == "html" }
-
-// Remove all HTML files in /docs.
-for htmlFile in htmlFiles {
-    try fileManager.removeItem(at: htmlFile)
-}
-
-// Read in the entire template
-let templateURL = currentDirectoryURL.appendingPathComponent("templates/base.html")
-var template = try String(contentsOf: templateURL, encoding: .utf8)
-
-let contentURL = currentDirectoryURL.appendingPathComponent("content")
-let contentContents = try fileManager.contentsOfDirectory(at: contentURL, includingPropertiesForKeys: nil)
-
-// Build 'pages' dictionary
-var pages = [[String:String]]()
-
-for contentFile in contentContents {
-    let inputFilePath = "content/" + contentFile.lastPathComponent
-    let outputFilePath = "docs/" + contentFile.lastPathComponent
-    let inputURL = currentDirectoryURL.appendingPathComponent(inputFilePath)
-    let input = try String(contentsOf: inputURL, encoding: .utf8)
-    let lines = input.components(separatedBy: "\n")
-    var page = ["inputFilePath": inputFilePath, "outputFilePath": outputFilePath]
+func directoryStatus(folder:URL, files:[URL] ) {
+    print("The current state of the \(folder.lastPathComponent) directory is:")
     
-    for line in lines {
-        if line.hasPrefix("***") {
-            let line = line.replacingOccurrences(of: "***", with: "")
-            let lineArray = line.components(separatedBy: ":")
-            let key = lineArray[0]
-            let value = lineArray[1]
-            page[key] = value
+    if files.count > 1 {
+        for file in files {
+            print("\(file.lastPathComponent)")
         }
     }
-    pages.append(page)
+    else {
+        print("The \(folder.lastPathComponent) directory is empty! :)")
+    }
+}
+
+
+func deleteFileList(files:[URL]) {
+    for file in files {
+        try! FileManager.default.removeItem(at: file)
+    }
+}
+
+func buildMetaData(files:[URL], inputDir:String, outputDir:String) -> [[String:String]]  {
+    var pages = [[String:String]]()
+    
+    for file in files {
+        let filePath = file.path
+        let outputFilePath = file.path.replacingOccurrences(of: "\(inputDir)/", with: "\(outputDir)/")
+        
+        let content = try! String(contentsOf: file, encoding: .utf8)
+        
+        let lines = content.components(separatedBy: "\n")
+        var count = 1
+        var page = ["file": filePath, "outputFile": outputFilePath]
+        
+        for line in lines {
+            if line.hasPrefix("***") {
+                let line = line.replacingOccurrences(of: "***", with: "")
+                let lineArray = line.components(separatedBy: ":")
+                let key = lineArray[0]
+                let value = lineArray[1]
+                page[key] = value
+            }
+        }
+        pages.append(page)
+        count += 1
+    }
+    
+    if pages.count == 0 {
+        print("There is no content!")
+    }
+    
+    return pages
 }
 
 //Extract HTML from input files
@@ -60,17 +70,20 @@ func extractHTML(fileContent: String) -> String {
 }
 
 //Build the pages
-for contentFile in contentContents {
-    let inputFilePath = "content/" + contentFile.lastPathComponent
-    let inputURL = currentDirectoryURL.appendingPathComponent(inputFilePath)
-    let input = try String(contentsOf: inputURL, encoding: .utf8)
-    
-    let htmlContent = extractHTML(fileContent: input)
-    let finishedPage = template.replacingOccurrences(of: "{{content}}", with: htmlContent)
-    
-    let outputFilePath = "docs/" + contentFile.lastPathComponent
-    let outputURL = currentDirectoryURL.appendingPathComponent(outputFilePath)
-    try finishedPage.write(to: outputURL, atomically: false, encoding: .utf8)
+func buildPages(contentMetaData:[[String:String]], templates:[URL]) {
+    let template = try! String(contentsOf: templates[0], encoding: .utf8)
+    for item in contentMetaData {
+        if let filePath = item["file"] {
+            let file = URL(fileURLWithPath: filePath)
+            let fileContent = try! String(contentsOf: file, encoding: .utf8)
+            let htmlContent = extractHTML(fileContent: fileContent)
+            let finishedPage = template.replacingOccurrences(of: "{{content}}", with: htmlContent)
+            if let outputFilePath = item["outputFile"] {
+                let outputFile = URL(fileURLWithPath: outputFilePath)
+                try! finishedPage.write(to: outputFile, atomically: false, encoding: .utf8)
+            }
+        }
+    }
 }
 
 //Open file in default browser
@@ -85,12 +98,44 @@ func openFile(fileURL: URL) {
 }
 
 //Open pages in browser if "sendOutputToBrowser" is true
-if sendOutputToBrowser {
-    for page in pages {
-        if let pageOutputFilePath = page["outputFilePath"] {
-            let pageURL = currentDirectoryURL.appendingPathComponent(pageOutputFilePath)
-            
-            openFile(fileURL: pageURL)
+func openBrowser(contentMetaData:[[String:String]]) {
+    if sendOutputToBrowser {
+        for item in contentMetaData {
+            if let outputFilePath = item["outputFile"] {
+                let pageURL = URL(fileURLWithPath: outputFilePath)
+                openFile(fileURL: pageURL)
+            }
         }
     }
 }
+
+
+//Cleansing the output directory
+let currentDirectoryPath = FileManager.default.currentDirectoryPath
+let currentDirectoryURL = URL(fileURLWithPath: currentDirectoryPath)
+
+let outputDir = currentDirectoryURL.appendingPathComponent("docs")
+let outputDirContents = try FileManager.default.contentsOfDirectory(at: outputDir, includingPropertiesForKeys: nil)
+let outputFiles = outputDirContents.filter{ $0.pathExtension == "html" }
+
+//Print current status of /docs directory.
+directoryStatus(folder: outputDir, files: outputFiles)
+
+//Remove all HTML files in /docs directory.
+deleteFileList(files: outputFiles)
+
+///Building the Content MetaData
+let templateDir = currentDirectoryURL.appendingPathComponent("templates")
+let templateDirContents = try FileManager.default.contentsOfDirectory(at: templateDir, includingPropertiesForKeys: nil)
+let templateFiles = templateDirContents.filter{ $0.pathExtension == "template" }
+
+let inputDir = currentDirectoryURL.appendingPathComponent("content")
+let inputFiles = try FileManager.default.contentsOfDirectory(at: inputDir, includingPropertiesForKeys: nil)
+
+let contentMetaData = buildMetaData(files: inputFiles, inputDir: inputDir.lastPathComponent, outputDir: outputDir.lastPathComponent)
+
+//Generating the Output
+buildPages(contentMetaData: contentMetaData, templates: templateFiles)
+
+//Opening output with default web browser
+openBrowser(contentMetaData: contentMetaData)
